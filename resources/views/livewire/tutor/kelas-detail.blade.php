@@ -20,7 +20,14 @@
                     </span>
                 </div>
             </div>
-            <div class="mt-4 md:mt-0">
+            <div class="mt-4 md:mt-0 flex items-center gap-3">
+                <a href="{{ route('tutor.whiteboard', $jadwal) }}" 
+                   class="flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold rounded-lg shadow-md transition transform hover:-translate-y-0.5">
+                    <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                    </svg>
+                    Buka Whiteboard
+                </a>
                 <a href="{{ route('tutor.kelas.index') }}" class="text-gray-500 hover:text-teal-600 text-sm font-medium flex items-center transition bg-gray-100 hover:bg-teal-50 px-4 py-2 rounded-lg">
                     &larr; Kembali ke Daftar Kelas
                 </a>

@@ -28,6 +28,7 @@ class KelasDetail extends Component
     public $judul_tugas;
     public $deskripsi_tugas;
     public $deadline_tugas;
+    public $editingTugasId = null;
 
     // --- Tab Penilaian ---
     public $selectedTugasId;
@@ -47,13 +48,15 @@ class KelasDetail extends Component
         $students = collect();
         if ($this->selectedTugasId) {
             $students = $this->jadwal->kelas->siswas()
-                ->with(['pengumpulanTugas' => function($q) {
-                    $q->where('tugas_id', $this->selectedTugasId);
-                }])
+                ->with([
+                        'pengumpulanTugas' => function ($q) {
+                            $q->where('tugas_id', $this->selectedTugasId);
+                        }
+                    ])
                 ->get();
-            
+
             // Initialize nilaInput buffer
-            foreach($students as $student) {
+            foreach ($students as $student) {
                 if ($student->pengumpulanTugas->isNotEmpty()) {
                     $this->nilaiInput[$student->id] = $student->pengumpulanTugas->first()->nilai;
                 }
@@ -71,13 +74,23 @@ class KelasDetail extends Component
 
     public function saveMateri()
     {
+        // Security: Ensure tutor owns this jadwal
+        if ($this->jadwal->tutor_id !== auth()->id()) {
+            abort(403, 'Unauthorized action.');
+        }
+
         $this->validate([
             'judul_materi' => 'required|string|max:255',
             'file_materi' => 'required|file|mimes:pdf,doc,docx,ppt,pptx|max:10240',
             'deskripsi_materi' => 'nullable|string',
         ]);
 
-        $path = $this->file_materi->store('materi', 'public');
+        // Use hashName for secure random filename
+        $path = $this->file_materi->storeAs(
+            'materi',
+            $this->file_materi->hashName(),
+            'public'
+        );
 
         Materi::create([
             'jadwal_id' => $this->jadwal->id,
@@ -87,12 +100,12 @@ class KelasDetail extends Component
         ]);
 
         $this->reset(['judul_materi', 'file_materi', 'deskripsi_materi']);
-        $this->dispatch('swal:modal', ['title'=>'Berhasil!', 'text'=>'Materi berhasil diupload.', 'icon'=>'success']);
+        $this->dispatch('swal:modal', ['title' => 'Berhasil!', 'text' => 'Materi berhasil diupload.', 'icon' => 'success']);
     }
 
     public function confirmDeleteMateri($id)
     {
-        $this->dispatch('swal:confirm', ['title'=>'Hapus Materi?', 'text'=>'File akan dihapus permanen.', 'icon'=>'warning', 'id'=>$id, 'onConfirmed'=>'deleteMateri']);
+        $this->dispatch('swal:confirm', ['title' => 'Hapus Materi?', 'text' => 'File akan dihapus permanen.', 'icon' => 'warning', 'id' => $id, 'onConfirmed' => 'deleteMateri']);
     }
 
     protected $listeners = ['deleteMateri', 'deleteTugas'];
@@ -100,16 +113,19 @@ class KelasDetail extends Component
     public function deleteMateri($data)
     {
         $materi = Materi::findOrFail($data['id']);
-        if ($materi->jadwal->tutor_id !== auth()->id()) abort(403);
-        if (Storage::disk('public')->exists($materi->file_path)) Storage::disk('public')->delete($materi->file_path);
+        if ($materi->jadwal->tutor_id !== auth()->id())
+            abort(403);
+        if (Storage::disk('public')->exists($materi->file_path))
+            Storage::disk('public')->delete($materi->file_path);
         $materi->delete();
-        $this->dispatch('swal:modal', ['title'=>'Terhapus!', 'text'=>'Materi berhasil dihapus.', 'icon'=>'success']);
+        $this->dispatch('swal:modal', ['title' => 'Terhapus!', 'text' => 'Materi berhasil dihapus.', 'icon' => 'success']);
     }
 
     public function downloadMateri($id)
     {
         $materi = Materi::findOrFail($id);
-        if ($materi->jadwal->tutor_id !== auth()->id()) abort(403);
+        if ($materi->jadwal->tutor_id !== auth()->id())
+            abort(403);
         return Storage::disk('public')->download($materi->file_path, $materi->judul . '.' . pathinfo($materi->file_path, PATHINFO_EXTENSION));
     }
 
@@ -117,47 +133,102 @@ class KelasDetail extends Component
 
     public function saveTugas()
     {
-        $this->validate([
+        // Security: Ensure tutor owns this jadwal
+        if ($this->jadwal->tutor_id !== auth()->id()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $rules = [
             'judul_tugas' => 'required|string|max:255',
             'deskripsi_tugas' => 'nullable|string',
-            'deadline_tugas' => 'required|date|after:now',
-        ]);
+        ];
 
-        Tugas::create([
-            'jadwal_id' => $this->jadwal->id,
-            'judul' => $this->judul_tugas,
-            'deskripsi' => $this->deskripsi_tugas,
-            'batas_waktu' => $this->deadline_tugas,
-        ]);
+        // For new tugas, deadline must be in the future
+        // For editing, allow keeping the same deadline or setting a new future date
+        if ($this->editingTugasId) {
+            $rules['deadline_tugas'] = 'required|date';
+        } else {
+            $rules['deadline_tugas'] = 'required|date|after:now';
+        }
 
-        $this->reset(['judul_tugas', 'deskripsi_tugas', 'deadline_tugas']);
-        $this->dispatch('swal:modal', ['title'=>'Berhasil!', 'text'=>'Tugas berhasil dibuat.', 'icon'=>'success']);
+        $this->validate($rules);
+
+        if ($this->editingTugasId) {
+            // Update existing tugas
+            $tugas = Tugas::findOrFail($this->editingTugasId);
+            if ($tugas->jadwal->tutor_id !== auth()->id())
+                abort(403);
+
+            $tugas->update([
+                'judul' => $this->judul_tugas,
+                'deskripsi' => $this->deskripsi_tugas,
+                'batas_waktu' => $this->deadline_tugas,
+            ]);
+
+            $this->reset(['judul_tugas', 'deskripsi_tugas', 'deadline_tugas', 'editingTugasId']);
+            $this->dispatch('swal:modal', ['title' => 'Berhasil!', 'text' => 'Tugas berhasil diperbarui.', 'icon' => 'success']);
+        } else {
+            // Create new tugas
+            Tugas::create([
+                'jadwal_id' => $this->jadwal->id,
+                'judul' => $this->judul_tugas,
+                'deskripsi' => $this->deskripsi_tugas,
+                'batas_waktu' => $this->deadline_tugas,
+            ]);
+
+            $this->reset(['judul_tugas', 'deskripsi_tugas', 'deadline_tugas']);
+            $this->dispatch('swal:modal', ['title' => 'Berhasil!', 'text' => 'Tugas berhasil dibuat.', 'icon' => 'success']);
+        }
+    }
+
+    public function editTugas($id)
+    {
+        $tugas = Tugas::findOrFail($id);
+        if ($tugas->jadwal->tutor_id !== auth()->id())
+            abort(403);
+
+        $this->editingTugasId = $tugas->id;
+        $this->judul_tugas = $tugas->judul;
+        $this->deskripsi_tugas = $tugas->deskripsi;
+        $this->deadline_tugas = \Carbon\Carbon::parse($tugas->batas_waktu)->format('Y-m-d\TH:i');
+    }
+
+    public function cancelEditTugas()
+    {
+        $this->reset(['judul_tugas', 'deskripsi_tugas', 'deadline_tugas', 'editingTugasId']);
     }
 
     public function confirmDeleteTugas($id)
     {
-        $this->dispatch('swal:confirm', ['title'=>'Hapus Tugas?', 'text'=>'Data tugas dan pengumpulan siswa akan dihapus.', 'icon'=>'warning', 'id'=>$id, 'onConfirmed'=>'deleteTugas']);
+        $this->dispatch('swal:confirm', ['title' => 'Hapus Tugas?', 'text' => 'Data tugas dan pengumpulan siswa akan dihapus.', 'icon' => 'warning', 'id' => $id, 'onConfirmed' => 'deleteTugas']);
     }
 
     public function deleteTugas($data)
     {
         $tugas = Tugas::findOrFail($data['id']);
-        if ($tugas->jadwal->tutor_id !== auth()->id()) abort(403);
+        if ($tugas->jadwal->tutor_id !== auth()->id())
+            abort(403);
         $tugas->delete();
-        $this->dispatch('swal:modal', ['title'=>'Terhapus!', 'text'=>'Tugas berhasil dihapus.', 'icon'=>'success']);
+        $this->dispatch('swal:modal', ['title' => 'Terhapus!', 'text' => 'Tugas berhasil dihapus.', 'icon' => 'success']);
     }
 
     // --- PENILAIAN LOGIC ---
 
     public function saveNilai($siswaId)
     {
-        if (!isset($this->nilaiInput[$siswaId])) return;
+        // Security: Ensure tutor owns this jadwal
+        if ($this->jadwal->tutor_id !== auth()->id()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        if (!isset($this->nilaiInput[$siswaId]))
+            return;
         $nilai = $this->nilaiInput[$siswaId];
-        
+
         // Validate inside logic to handle individual field
         if ($nilai < 0 || $nilai > 100) {
-             $this->dispatch('swal:modal', ['title'=>'Error', 'text'=>'Nilai harus 0-100.', 'icon'=>'error']);
-             return;
+            $this->dispatch('swal:modal', ['title' => 'Error', 'text' => 'Nilai harus 0-100.', 'icon' => 'error']);
+            return;
         }
 
         // Find or Create Pengumpulan
@@ -165,7 +236,7 @@ class KelasDetail extends Component
         // Logic: "Tabel Penilaian: Muncul setelah tugas dipilih... Kolom Nama Siswa... Input Nilai".
         // If student hasn't submitted, can tutor grade? Usually yes (manual assignment).
         // I'll assume we update existing or create new if not exists (e.g. offline submission).
-        
+
         // Cek apakah siswa sudah mengumpulkan tugas
         $pengumpulan = PengumpulanTugas::where('tugas_id', $this->selectedTugasId)
             ->where('siswa_id', $siswaId)
@@ -184,7 +255,7 @@ class KelasDetail extends Component
 
         $pengumpulan->nilai = $nilai;
         $pengumpulan->save();
-        
+
         // Optional: Show simplified success toast/notification
         // $this->dispatch('notify', 'Nilai tersimpan');
 

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Master;
 
+use App\Enums\UserRole;
 use App\Models\MataPelajaran;
 use Livewire\Component;
 use Livewire\Attributes\Title;
@@ -16,6 +17,21 @@ class MapelManager extends Component
     protected $rules = [
         'nama_mapel' => 'required|string|max:255',
     ];
+
+    public function mount()
+    {
+        $this->authorizeAdmin();
+    }
+
+    /**
+     * Security check: Ensure current user is admin
+     */
+    private function authorizeAdmin(): void
+    {
+        if (auth()->user()->role !== UserRole::ADMIN) {
+            abort(403, 'Unauthorized action.');
+        }
+    }
 
     public function render()
     {
@@ -44,6 +60,7 @@ class MapelManager extends Component
 
     public function store()
     {
+        $this->authorizeAdmin();
         $this->validate();
 
         MataPelajaran::updateOrCreate(
@@ -52,7 +69,7 @@ class MapelManager extends Component
         );
 
         session()->flash('message', $this->mapel_id ? 'Mata Pelajaran berhasil diperbarui.' : 'Mata Pelajaran berhasil ditambahkan.');
-        
+
         $this->closeModal();
         $this->dispatch('swal:modal', [
             'title' => 'Sukses!',
@@ -63,6 +80,7 @@ class MapelManager extends Component
 
     public function edit($id)
     {
+        $this->authorizeAdmin();
         $mapel = MataPelajaran::findOrFail($id);
         $this->mapel_id = $id;
         $this->nama_mapel = $mapel->nama_mapel;
@@ -84,6 +102,7 @@ class MapelManager extends Component
 
     public function deleteMapel($data)
     {
+        $this->authorizeAdmin();
         MataPelajaran::find($data['id'])->delete();
         $this->dispatch('swal:modal', [
             'title' => 'Terhapus!',

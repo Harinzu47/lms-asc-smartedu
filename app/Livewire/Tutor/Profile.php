@@ -19,7 +19,7 @@ class Profile extends Component
     public $nomor_telepon;
     public $alamat;
     public $password; // For password change link, likely separate or modal, but prompt says "Link Ganti password". I won't implement logic unless asked.
-    
+
     public $photo;
     public $existingPhoto;
 
@@ -37,7 +37,7 @@ class Profile extends Component
     public function updatedPhoto()
     {
         $this->validate([
-            'photo' => 'image|max:1024', // 1MB Max
+            'photo' => 'mimes:jpg,jpeg,png|max:1024', // 1MB Max, strict MIME
         ]);
     }
 
@@ -46,7 +46,7 @@ class Profile extends Component
         $this->validate([
             'nomor_telepon' => 'required|string|max:15',
             'alamat' => 'required|string|max:255',
-            'photo' => 'nullable|image|max:1024',
+            'photo' => 'nullable|mimes:jpg,jpeg,png|max:1024',
         ]);
 
         $user = Auth::user();
@@ -56,7 +56,12 @@ class Profile extends Component
             if ($user->profile_photo_path) {
                 Storage::disk('public')->delete($user->profile_photo_path);
             }
-            $path = $this->photo->store('profile-photos', 'public');
+            // Use hashName for secure random filename
+            $path = $this->photo->storeAs(
+                'profile-photos',
+                $this->photo->hashName(),
+                'public'
+            );
             $user->profile_photo_path = $path;
         }
 
@@ -69,7 +74,7 @@ class Profile extends Component
             'text' => 'Profile berhasil diperbarui.',
             'icon' => 'success'
         ]);
-        
+
         // Refresh component state
         $this->existingPhoto = $user->profile_photo_path;
         $this->photo = null;

@@ -20,7 +20,7 @@ class Profile extends Component
     public $alamat;
     public $photo;
     public $existingPhoto;
-    
+
     // Password change
     public $current_password;
     public $new_password;
@@ -39,7 +39,7 @@ class Profile extends Component
     public function updatedPhoto()
     {
         $this->validate([
-            'photo' => 'image|max:1024', // 1MB Max
+            'photo' => 'mimes:jpg,jpeg,png|max:1024', // 1MB Max, strict MIME
         ]);
     }
 
@@ -56,7 +56,12 @@ class Profile extends Component
             if ($user->profile_photo_path) {
                 Storage::delete($user->profile_photo_path);
             }
-            $path = $this->photo->store('profile-photos', 'public');
+            // Use hashName for secure random filename
+            $path = $this->photo->storeAs(
+                'profile-photos',
+                $this->photo->hashName(),
+                'public'
+            );
             $user->profile_photo_path = $path;
         }
 
@@ -70,21 +75,21 @@ class Profile extends Component
             'icon' => 'success'
         ]);
     }
-    
+
     public function updatePassword()
     {
         $this->validate([
             'current_password' => 'required|current_password',
             'new_password' => 'required|min:8|confirmed',
         ]);
-        
+
         $user = Auth::user();
         $user->forceFill([
             'password' => Hash::make($this->new_password),
         ])->save();
-        
+
         $this->reset(['current_password', 'new_password', 'new_password_confirmation']);
-        
+
         $this->dispatch('swal:modal', [
             'title' => 'Berhasil!',
             'text' => 'Password berhasil diubah.',

@@ -80,16 +80,26 @@ class JadwalSeeder extends Seeder
             ],
         ];
 
-        foreach ($jadwalData as $jadwal) {
-            Jadwal::firstOrCreate(
+        foreach ($jadwalData as $jadwalItem) {
+            $jadwal = Jadwal::firstOrCreate(
                 [
-                    'tutor_id' => $jadwal['tutor_id'],
-                    'kelas_id' => $jadwal['kelas_id'],
-                    'hari' => $jadwal['hari'],
-                    'jam_mulai' => $jadwal['jam_mulai'],
+                    'tutor_id' => $jadwalItem['tutor_id'],
+                    'kelas_id' => $jadwalItem['kelas_id'],
+                    'hari' => $jadwalItem['hari'],
+                    'jam_mulai' => $jadwalItem['jam_mulai'],
                 ],
-                $jadwal
+                $jadwalItem
             );
+
+            // Assign siswa from the same kelas to this jadwal
+            $siswaIds = User::where('role', UserRole::SISWA)
+                ->where('kelas_id', $jadwalItem['kelas_id'])
+                ->pluck('id')
+                ->toArray();
+
+            if (!empty($siswaIds)) {
+                $jadwal->siswas()->syncWithoutDetaching($siswaIds);
+            }
         }
     }
 }

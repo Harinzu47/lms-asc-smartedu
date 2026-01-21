@@ -10,7 +10,7 @@ class KelasDetail extends Component
 {
     public Jadwal $jadwal;
     public $activeTab = 'materi'; // 'materi', 'tugas', 'diskusi', 'peserta', 'presensi'
-    
+
     // Data for Presensi Modal
     public $selectedPresensiDate = null;
     public $presensiDetail = [];
@@ -31,17 +31,17 @@ class KelasDetail extends Component
     public function showPresensiDetail($date)
     {
         $this->selectedPresensiDate = $date;
-        
+
         // Get all students
         $students = $this->jadwal->kelas->siswas;
-        
+
         // Get presence records for this date and schedule
         $presenceRecords = Presensi::where('jadwal_id', $this->jadwal->id)
-                                   ->where('tanggal', $date)
-                                   ->get()
-                                   ->keyBy('siswa_id'); // Use siswa_id to match with Student Users
+            ->where('tanggal', $date)
+            ->get()
+            ->keyBy('siswa_id'); // Use siswa_id to match with Student Users
 
-        $this->presensiDetail = $students->map(function($student) use ($presenceRecords) {
+        $this->presensiDetail = $students->map(function ($student) use ($presenceRecords) {
             $record = $presenceRecords->get($student->id);
             return [
                 'name' => $student->name,
@@ -60,7 +60,7 @@ class KelasDetail extends Component
         $this->selectedPresensiDate = null;
         $this->presensiDetail = [];
     }
-    
+
     // --- Tugas Detail Logic ---
     public $selectedTugasId = null;
     public $tugasSubmissionDetail = []; // Will hold student name, status, submission date, file/answer
@@ -71,19 +71,20 @@ class KelasDetail extends Component
     {
         $this->selectedTugasId = $tugasId;
         $tugas = $this->jadwal->tugases()->find($tugasId);
-        
-        if(!$tugas) return;
-        
+
+        if (!$tugas)
+            return;
+
         $this->selectedTugasTitle = $tugas->judul;
-        
+
         // Get all students in this schedule
         // Important: Use siswas() relation which we just refactored for Many-to-Many
-        $students = $this->jadwal->siswas; 
+        $students = $this->jadwal->siswas;
 
         // Get submissions for this specific task
         $submissions = $tugas->pengumpulanTugas->keyBy('siswa_id');
 
-        $this->tugasSubmissionDetail = $students->map(function($student) use ($submissions) {
+        $this->tugasSubmissionDetail = $students->map(function ($student) use ($submissions) {
             $submission = $submissions->get($student->id);
             return [
                 'name' => $student->name,
@@ -91,7 +92,7 @@ class KelasDetail extends Component
                 'status' => $submission ? 'Submit' : 'Belum',
                 'submitted_at' => $submission ? $submission->created_at->format('d M Y, H:i') : '-',
                 'file_path' => $submission ? $submission->file_jawaban : null, // Corrected column name
-                'jawaban' => $submission ? $submission->jawaban : null, 
+                'jawaban' => $submission ? $submission->jawaban : null,
                 'nilai' => $submission ? $submission->nilai : '-', // Pass score (default to -)
             ];
         });
@@ -112,12 +113,12 @@ class KelasDetail extends Component
         $stats = [
             'total_materi' => $this->jadwal->materis()->count(),
             'total_tugas' => $this->jadwal->tugases()->count(),
-            'total_siswa' => $this->jadwal->kelas->siswas()->count(),
+            'total_siswa' => $this->jadwal->siswas()->count(),
             'total_pertemuan' => Presensi::where('jadwal_id', $this->jadwal->id)
-                                         ->selectRaw('tanggal as date')
-                                         ->groupBy('date')
-                                         ->get()
-                                         ->count(),
+                ->selectRaw('tanggal as date')
+                ->groupBy('date')
+                ->get()
+                ->count(),
         ];
 
         // Group Presensi by Date for History Table
@@ -137,12 +138,12 @@ class KelasDetail extends Component
                 // Admin wants to see "Who hasn't attended/been inputs".
                 // If we assume standard attendance, Total Input should be Total Class Size.
                 // Discrepancy comes when Total Input < Total Class Size.
-                
+    
                 $totalRecorded = $item->hadir + $item->sakit + $item->izin + $item->alpha;
                 $implicitAlpha = max(0, $stats['total_siswa'] - $totalRecorded);
-                
+
                 $item->alpha += $implicitAlpha; // Add implicit alpha to explicit alpha count
-                
+    
                 return $item;
             });
 

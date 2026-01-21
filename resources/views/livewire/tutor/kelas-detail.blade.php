@@ -179,10 +179,10 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Form Buat Tugas -->
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-xl shadow-md p-6 sticky top-24 border border-gray-100">
+            <div class="bg-white rounded-xl shadow-md p-6 sticky top-24 border border-gray-100">
                     <h3 class="text-lg font-bold text-gray-800 mb-6 flex items-center border-b pb-4">
                         <svg class="w-5 h-5 mr-2 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-                        Buat Tugas Baru
+                        {{ $editingTugasId ? 'Edit Tugas' : 'Buat Tugas Baru' }}
                     </h3>
                     <form wire:submit.prevent="saveTugas">
                         <div class="space-y-5">
@@ -203,9 +203,16 @@
                                 <textarea wire:model="deskripsi_tugas" rows="4" class="w-full rounded-lg border-gray-300 focus:ring-teal-500 focus:border-teal-500 bg-gray-50 focus:bg-white transition"></textarea>
                             </div>
 
-                            <button type="submit" class="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg shadow-md transition transform hover:-translate-y-0.5">
-                                Buat Tugas
-                            </button>
+                            <div class="flex gap-2">
+                                <button type="submit" class="flex-1 py-2.5 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg shadow-md transition transform hover:-translate-y-0.5">
+                                    {{ $editingTugasId ? 'Simpan Perubahan' : 'Buat Tugas' }}
+                                </button>
+                                @if($editingTugasId)
+                                    <button type="button" wire:click="cancelEditTugas" class="py-2.5 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-lg transition">
+                                        Batal
+                                    </button>
+                                @endif
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -235,9 +242,14 @@
                                     Mengumpulkan: <span class="font-bold text-gray-700">{{ $tugas->pengumpulanTugas->count() }}</span> Siswa
                                 </div>
                             </div>
-                            <button wire:click="confirmDeleteTugas({{ $tugas->id }})" class="ml-4 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
+                            <div class="ml-4 flex items-center space-x-1">
+                                <button wire:click="editTugas({{ $tugas->id }})" class="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition" title="Edit">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                </button>
+                                <button wire:click="confirmDeleteTugas({{ $tugas->id }})" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition" title="Hapus">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
                         </div>
                     @empty
                          <div class="text-center py-10">
@@ -359,12 +371,12 @@
         <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
             <h3 class="text-lg font-bold text-gray-800 mb-6 border-b pb-4 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                Daftar Peserta Kelas ({{ $jadwal->kelas->siswas->count() }})
+                Daftar Peserta Kelas ({{ $jadwal->siswas->count() }})
             </h3>
 
-            @if($jadwal->kelas->siswas->count() > 0)
+            @if($jadwal->siswas->count() > 0)
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    @foreach($jadwal->kelas->siswas as $siswa)
+                    @foreach($jadwal->siswas as $siswa)
                         <div class="flex items-center p-4 bg-gray-50 rounded-xl border border-gray-100 hover:shadow-md hover:bg-white transition duration-200">
                             <div class="flex-shrink-0">
                                 @if($siswa->profile_photo_path)

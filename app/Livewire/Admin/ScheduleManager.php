@@ -33,9 +33,20 @@ class ScheduleManager extends Component
 
     public function mount()
     {
+        $this->authorizeAdmin();
         $this->kelasList = Kelas::all();
         $this->mapelList = MataPelajaran::all();
         $this->tutorList = User::where('role', UserRole::TUTOR->value)->get();
+    }
+
+    /**
+     * Security check: Ensure current user is admin
+     */
+    private function authorizeAdmin(): void
+    {
+        if (auth()->user()->role !== UserRole::ADMIN) {
+            abort(403, 'Unauthorized action.');
+        }
     }
 
     public function render()
@@ -77,6 +88,8 @@ class ScheduleManager extends Component
 
     public function store()
     {
+        $this->authorizeAdmin();
+
         $this->validate([
             'kelas_id' => 'required|exists:kelas,id',
             'mapel_id' => 'required|exists:mata_pelajarans,id',
@@ -109,7 +122,7 @@ class ScheduleManager extends Component
         ]);
 
         session()->flash('message', $this->jadwal_id ? 'Jadwal berhasil diperbarui.' : 'Jadwal berhasil ditambahkan.');
-        
+
         $this->closeModal();
         $this->dispatch('swal:modal', [
             'title' => 'Sukses!',
@@ -127,7 +140,7 @@ class ScheduleManager extends Component
                 $query->where(function ($q) use ($start, $end) {
                     // Logic: Overlap if (StartA < EndB) AND (EndA > StartB)
                     $q->where('jam_mulai', '<', $end)
-                      ->where('jam_selesai', '>', $start);
+                        ->where('jam_selesai', '>', $start);
                 });
             })
             ->exists();
@@ -135,6 +148,7 @@ class ScheduleManager extends Component
 
     public function edit($id)
     {
+        $this->authorizeAdmin();
         $jadwal = Jadwal::findOrFail($id);
         $this->jadwal_id = $id;
         $this->kelas_id = $jadwal->kelas_id;
@@ -144,7 +158,7 @@ class ScheduleManager extends Component
         // Format time properly for HTML time input (H:i)
         $this->jam_mulai = \Carbon\Carbon::parse($jadwal->jam_mulai)->format('H:i');
         $this->jam_selesai = \Carbon\Carbon::parse($jadwal->jam_selesai)->format('H:i');
-        
+
         $this->openModal();
     }
 
@@ -163,6 +177,7 @@ class ScheduleManager extends Component
 
     public function deleteJadwal($data)
     {
+        $this->authorizeAdmin();
         Jadwal::find($data['id'])->delete();
         $this->dispatch('swal:modal', [
             'title' => 'Terhapus!',
@@ -194,7 +209,8 @@ class ScheduleManager extends Component
 
     public function getStudentsInClassProperty()
     {
-        if (!$this->managingJadwalId) return collect();
+        if (!$this->managingJadwalId)
+            return collect();
         $jadwal = Jadwal::find($this->managingJadwalId);
         return $jadwal ? $jadwal->siswas()->orderBy('name')->get() : collect();
     }
@@ -213,6 +229,8 @@ class ScheduleManager extends Component
 
     public function addStudentToClass()
     {
+        $this->authorizeAdmin();
+
         $this->validate([
             'selectedStudentId' => 'required|exists:users,id',
         ]);
@@ -221,8 +239,8 @@ class ScheduleManager extends Component
         $jadwal = Jadwal::find($this->managingJadwalId);
 
         if ($student->role !== UserRole::SISWA) {
-             $this->addError('selectedStudentId', 'User yang dipilih bukan siswa.');
-             return;
+            $this->addError('selectedStudentId', 'User yang dipilih bukan siswa.');
+            return;
         }
 
         // Attach student to schedule
@@ -233,18 +251,19 @@ class ScheduleManager extends Component
             'text' => 'Siswa berhasil ditambahkan ke jadwal ini.',
             'icon' => 'success'
         ]);
-        
+
         $this->reset('selectedStudentId');
     }
 
     public function removeStudentFromClass($studentId)
     {
+        $this->authorizeAdmin();
         $jadwal = Jadwal::find($this->managingJadwalId);
-        
+
         if ($jadwal) {
             $jadwal->siswas()->detach($studentId);
 
-             $this->dispatch('swal:modal', [
+            $this->dispatch('swal:modal', [
                 'title' => 'Berhasil!',
                 'text' => 'Siswa dikeluarkan dari jadwal ini.',
                 'icon' => 'success'

@@ -32,8 +32,20 @@ class UserManagement extends Component
 
     public function mount()
     {
+        // Security: Ensure only admin can access
+        $this->authorizeAdmin();
         $this->roles = UserRole::cases();
         $this->kelasList = Kelas::all();
+    }
+
+    /**
+     * Security check: Ensure current user is admin
+     */
+    private function authorizeAdmin(): void
+    {
+        if (auth()->user()->role !== UserRole::ADMIN) {
+            abort(403, 'Unauthorized action.');
+        }
     }
 
     public function render()
@@ -42,7 +54,7 @@ class UserManagement extends Component
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('email', 'like', '%' . $this->search . '%');
+                        ->orWhere('email', 'like', '%' . $this->search . '%');
                 });
             })
             ->when($this->filterRole, function ($query) {
@@ -80,12 +92,14 @@ class UserManagement extends Component
     public function resetInputFields()
     {
         $this->reset(['user_id', 'name', 'email', 'password', 'role', 'nomor_telepon', 'alamat', 'status_aktif', 'kelas_id']);
-        $this->status_aktif = true; 
-        $this->role = UserRole::SISWA->value; 
+        $this->status_aktif = true;
+        $this->role = UserRole::SISWA->value;
     }
 
     public function store()
     {
+        $this->authorizeAdmin();
+
         // Dynamic validation
         $rules = [
             'name' => 'required|string|max:255',
@@ -103,9 +117,9 @@ class UserManagement extends Component
 
         // Kelas required if Siswa (Can be nullable depending on business logic, user asked for it to be fillable)
         if ($this->role === UserRole::SISWA->value) {
-           // Allow nullable, but if filled must exist. Or admin wants to assign later? 
-           // Request: "Jika role === 'siswa', maka kelas_id boleh diisi". Assuming nullable is fine.
-           $rules['kelas_id'] = 'nullable|exists:kelas,id';
+            // Allow nullable, but if filled must exist. Or admin wants to assign later? 
+            // Request: "Jika role === 'siswa', maka kelas_id boleh diisi". Assuming nullable is fine.
+            $rules['kelas_id'] = 'nullable|exists:kelas,id';
         } else {
             // Force null for non-students
         }
@@ -129,7 +143,7 @@ class UserManagement extends Component
         User::updateOrCreate(['id' => $this->user_id], $data);
 
         session()->flash('message', $this->user_id ? 'User berhasil diperbarui.' : 'User berhasil dibuat.');
-        
+
         $this->closeModal();
         $this->dispatch('swal:modal', [
             'title' => 'Sukses!',
@@ -140,6 +154,7 @@ class UserManagement extends Component
 
     public function edit($id)
     {
+        $this->authorizeAdmin();
         $user = User::findOrFail($id);
         $this->user_id = $id;
         $this->name = $user->name;
@@ -149,17 +164,18 @@ class UserManagement extends Component
         $this->alamat = $user->alamat;
         $this->status_aktif = $user->status_aktif;
         $this->kelas_id = $user->kelas_id;
-        
+
         $this->openModal();
     }
-    
+
     // ... existing toggleStatus ...
     public function toggleStatus($id)
     {
+        $this->authorizeAdmin();
         $user = User::find($id);
         $user->status_aktif = !$user->status_aktif;
         $user->save();
-        
+
         $this->dispatch('swal:modal', [
             'title' => $user->status_aktif ? 'Aktif!' : 'Non-Aktif!',
             'text' => 'Status user berhasil diubah.',
@@ -177,7 +193,7 @@ class UserManagement extends Component
             'onConfirmed' => 'resetPassword'
         ]);
     }
-    
+
     public function confirmDelete($id)
     {
         $this->dispatch('swal:confirm', [
@@ -193,6 +209,7 @@ class UserManagement extends Component
 
     public function deleteUser($data)
     {
+        $this->authorizeAdmin();
         User::find($data['id'])->delete();
         $this->dispatch('swal:modal', [
             'title' => 'Terhapus!',
@@ -203,6 +220,7 @@ class UserManagement extends Component
 
     public function resetPassword($data)
     {
+        $this->authorizeAdmin();
         $user = User::find($data['id']);
         $user->password = Hash::make('password');
         $user->save();
@@ -229,7 +247,7 @@ class UserManagement extends Component
     {
         $this->resetPage();
     }
-    
+
     // Verification Logic
     public function openVerification($id)
     {
@@ -248,6 +266,7 @@ class UserManagement extends Component
 
     public function approvePayment()
     {
+        $this->authorizeAdmin();
         $user = User::find($this->user_id);
         $user->status_aktif = true;
         // Optional: Maybe assign default class if logic exists
@@ -263,8 +282,9 @@ class UserManagement extends Component
 
     public function rejectPayment()
     {
+        $this->authorizeAdmin();
         $user = User::find($this->user_id);
-        if($user->bukti_pembayaran) {
+        if ($user->bukti_pembayaran) {
             \Illuminate\Support\Facades\Storage::disk('public')->delete($user->bukti_pembayaran);
         }
         $user->delete();

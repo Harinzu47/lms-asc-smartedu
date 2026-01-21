@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Master;
 
+use App\Enums\UserRole;
 use App\Models\Kelas;
 use Livewire\Component;
 use Livewire\Attributes\Title;
@@ -16,6 +17,21 @@ class KelasManager extends Component
     protected $rules = [
         'nama_kelas' => 'required|string|max:255',
     ];
+
+    public function mount()
+    {
+        $this->authorizeAdmin();
+    }
+
+    /**
+     * Security check: Ensure current user is admin
+     */
+    private function authorizeAdmin(): void
+    {
+        if (auth()->user()->role !== UserRole::ADMIN) {
+            abort(403, 'Unauthorized action.');
+        }
+    }
 
     public function render()
     {
@@ -44,6 +60,7 @@ class KelasManager extends Component
 
     public function store()
     {
+        $this->authorizeAdmin();
         $this->validate();
 
         Kelas::updateOrCreate(
@@ -52,7 +69,7 @@ class KelasManager extends Component
         );
 
         session()->flash('message', $this->kelas_id ? 'Kelas berhasil diperbarui.' : 'Kelas berhasil ditambahkan.');
-        
+
         $this->closeModal();
         $this->dispatch('swal:modal', [
             'title' => 'Sukses!',
@@ -63,6 +80,7 @@ class KelasManager extends Component
 
     public function edit($id)
     {
+        $this->authorizeAdmin();
         $kelas = Kelas::findOrFail($id);
         $this->kelas_id = $id;
         $this->nama_kelas = $kelas->nama_kelas;
@@ -84,6 +102,7 @@ class KelasManager extends Component
 
     public function deleteKelas($data)
     {
+        $this->authorizeAdmin();
         Kelas::find($data['id'])->delete();
         $this->dispatch('swal:modal', [
             'title' => 'Terhapus!',

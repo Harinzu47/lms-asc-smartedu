@@ -40,7 +40,7 @@ class Register extends Component
     #[Rule('nullable|exists:kelas,id')]
     public ?int $kelas_id = null;
 
-    #[Rule('required|image|max:2048')]
+    #[Rule('required|mimes:jpg,jpeg,png|max:2048')]
     public $bukti_pembayaran = null;
 
     public function register(): void
@@ -49,7 +49,12 @@ class Register extends Component
 
         $buktiPath = null;
         if ($this->bukti_pembayaran) {
-            $buktiPath = $this->bukti_pembayaran->store('payments', 'public');
+            // Use hashName for secure random filename
+            $buktiPath = $this->bukti_pembayaran->storeAs(
+                'payments',
+                $this->bukti_pembayaran->hashName(),
+                'public'
+            );
         }
 
         $user = User::create([

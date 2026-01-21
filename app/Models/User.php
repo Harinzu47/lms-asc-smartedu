@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -14,7 +15,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, Notifiable, TwoFactorAuthenticatable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -69,7 +70,7 @@ class User extends Authenticatable
     {
         return $this->hasMany(Comment::class);
     }
-    
+
     /**
      * Check if user has a specific role.
      */
@@ -86,7 +87,7 @@ class User extends Authenticatable
         return Str::of($this->name)
             ->explode(' ')
             ->take(2)
-            ->map(fn (string $word): string => Str::substr($word, 0, 1))
+            ->map(fn(string $word): string => Str::substr($word, 0, 1))
             ->implode('');
     }
 
@@ -129,6 +130,6 @@ class User extends Authenticatable
     public function jadwalSiswas(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Jadwal::class, 'jadwal_siswa', 'user_id', 'jadwal_id')
-                    ->withTimestamps();
+            ->withTimestamps();
     }
 }

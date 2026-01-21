@@ -7,6 +7,8 @@ use App\Models\Kelas;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Rule;
 use Livewire\Attributes\Title;
@@ -47,27 +49,33 @@ class Register extends Component
     {
         $this->validate();
 
-        $buktiPath = null;
-        if ($this->bukti_pembayaran) {
-            // Use hashName for secure random filename
-            $buktiPath = $this->bukti_pembayaran->storeAs(
-                'payments',
-                $this->bukti_pembayaran->hashName(),
-                'public'
-            );
-        }
+        // Use DB transaction to ensure data integrity
+        // If file upload succeeds but user create fails, the entire operation will rollback
+        $user = DB::transaction(function () {
+            $buktiPath = null;
+            if ($this->bukti_pembayaran) {
+                // Use hashName for secure random filename
+                $buktiPath = $this->bukti_pembayaran->storeAs(
+                    'payments',
+                    $this->bukti_pembayaran->hashName(),
+                    'public'
+                );
+            }
 
-        $user = User::create([
-            'name' => $this->name,
-            'email' => $this->email,
-            'password' => $this->password,
-            'role' => UserRole::SISWA,
-            'nomor_telepon' => $this->nomor_telepon,
-            'alamat' => $this->alamat,
-            'status_aktif' => false, // Perlu verifikasi admin
-            'bukti_pembayaran' => $buktiPath,
-            'kelas_id' => $this->kelas_id,
-        ]);
+            $user = User::create([
+                'name' => $this->name,
+                'email' => $this->email,
+                'password' => $this->password,
+                'role' => UserRole::SISWA,
+                'nomor_telepon' => $this->nomor_telepon,
+                'alamat' => $this->alamat,
+                'status_aktif' => false, // Perlu verifikasi admin
+                'bukti_pembayaran' => $buktiPath,
+                'kelas_id' => $this->kelas_id,
+            ]);
+
+            return $user;
+        });
 
         event(new Registered($user));
 

@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Jadwal extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -93,6 +94,6 @@ class Jadwal extends Model
     public function siswas(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(User::class, 'jadwal_siswa', 'jadwal_id', 'user_id')
-                    ->withTimestamps();
+            ->withTimestamps();
     }
 }
